@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const mysql = require('mysql2')
 const router = express.Router();
@@ -5,7 +6,7 @@ const nodemailer = require('nodemailer')
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: 'welcome1234',
+    password: process.env.dbpassword,
     database: 'blog-db'
 })
 
@@ -28,7 +29,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'paljitendra9171@gmail.com',
-        pass: '9171734426'
+        pass: process.env.gmailPassword
     }
 });
 
@@ -37,7 +38,7 @@ const transporter = nodemailer.createTransport({
 
 
 1 // save new post
-router.post('/save-post',async (req, res) => {
+router.post('/save-post', async (req, res) => {
 
     const { id, title, description, author } = req.body
     const sql = `INSERT INTO post VALUES(${id},'${title}','${description}',${author})`;
@@ -56,7 +57,9 @@ router.post('/save-post',async (req, res) => {
     })
 
 
-    const sqlGetEmail = `select email from author where author-id!=${author}`;
+
+    let mailOptions = {}
+    const sqlGetEmail = `select email from author where 'author-id' !=${author}`;
     connection.query(sqlGetEmail, function (err, results) {
         if (err) {
             return res.send({
@@ -64,29 +67,38 @@ router.post('/save-post',async (req, res) => {
                 message: "Some Database error, Please try again",
                 error: err.message
             })
+            
         }
         else {
             console.log(results + "hiii");
-            const mailOptions = {
+            mailOptions = {
                 from: 'paljitendra9171@gmail.com',
-                to: results,
+                to: results.map(email=>{
+                    return email.email
+                }),
                 subject: `New post created by ${author}`,
                 text: "Hi ,a new post has been created ,please check "
             }
             transporter.sendMail(mailOptions, function (error, info) {
                 if (error) {
                     console.log(error);
-
-                } else {
-                    console.log('Email sent: ' + info.response);
+                    return res.send({
+                        status: 400,
+                        message: 'error in sending mail'
+                    })
                 }
-            });
+                else {
+                    console.log('Email sent: ' + info.response)
+                    return res.send({
+                        status: 200,
+                        message: 'post saved successfully'
+                    })
+                }
+            })
         }
     })
-    return res.send({
-        status: 200,
-        message: 'post saved successfully'
-    })
+   
+    
 })
 
 
